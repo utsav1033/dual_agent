@@ -1,7 +1,0 @@
-WARNING: Ignoring invalid distribution ~omposio-core (C:\Users\Yogesh\AppData\Local\Programs\Python\Python312\Lib\site-packages)
-WARNING: Cache entry deserialization failed, entry ignored
-WARNING: Ignoring invalid distribution ~omposio-core (C:\Users\Yogesh\AppData\Local\Programs\Python\Python312\Lib\site-packages)
-WARNING: Ignoring invalid distribution ~omposio-core (C:\Users\Yogesh\AppData\Local\Programs\Python\Python312\Lib\site-packages)
-
-[notice] A new release of pip is available: 25.0.1 -> 26.1.1
-[notice] To update, run: python.exe -m pip install --upgrade pip

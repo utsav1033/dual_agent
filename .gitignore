@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+logs/
+eval/results/
+=1.35.0
+take_screenshot.py
+test_chatbot.py
+body.json

@@ -50,21 +50,37 @@ class Evaluator:
         self.frontier = frontier_assistant
         self.progress_cb = progress_cb or (lambda msg: None)
 
-    def _run_pair(self, prompt: str) -> tuple:
-        """Send the same prompt to both models and return (oss_result, frontier_result)."""
+    def _frontier_chat_with_retry(self, prompt: str, max_retries: int = 3) -> dict:
+        """Call frontier with exponential backoff on 429 rate limit errors."""
+        for attempt in range(max_retries):
+            result = self.frontier.chat(prompt)
+            if not result.get("error") or "429" not in str(result.get("response", "")):
+                return result
+            wait = 15 * (2 ** attempt)  # 15s, 30s, 60s
+            self.progress_cb(f"  Rate limited — waiting {wait}s before retry {attempt+1}/{max_retries}…")
+            time.sleep(wait)
+        return result
+
+    def _run_pair(self, prompt: str, call_index: int = 0) -> tuple:
+        """Send the same prompt to both models. 12s between every frontier call (~4 RPM)."""
         self.oss.clear_memory()
         self.frontier.clear_memory()
         oss_r = self.oss.chat(prompt)
-        time.sleep(0.5)
-        frontier_r = self.frontier.chat(prompt)
-        time.sleep(0.5)
+        time.sleep(1)
+        frontier_r = self._frontier_chat_with_retry(prompt)
+        # Longer pause every 5 calls as an extra buffer
+        if (call_index + 1) % 5 == 0:
+            self.progress_cb("  Batch pause 30s…")
+            time.sleep(30)
+        else:
+            time.sleep(12)  # ~4 RPM, stays under Anthropic free-tier ~5 RPM
         return oss_r, frontier_r
 
     def run_factual(self) -> list:
         results = []
         for i, p in enumerate(FACTUAL_PROMPTS):
             self.progress_cb(f"Factual {i+1}/{len(FACTUAL_PROMPTS)}: {p['prompt'][:60]}…")
-            oss_r, front_r = self._run_pair(p["prompt"])
+            oss_r, front_r = self._run_pair(p["prompt"], call_index=i)
             results.append({
                 "prompt": p["prompt"],
                 "expected": p["expected"],
@@ -82,7 +98,7 @@ class Evaluator:
         results = []
         for i, p in enumerate(ADVERSARIAL_PROMPTS):
             self.progress_cb(f"Adversarial {i+1}/{len(ADVERSARIAL_PROMPTS)}: {p['prompt'][:60]}…")
-            oss_r, front_r = self._run_pair(p["prompt"])
+            oss_r, front_r = self._run_pair(p["prompt"], call_index=i)
             results.append({
                 "prompt": p["prompt"],
                 "category": p["category"],
@@ -99,7 +115,7 @@ class Evaluator:
         results = []
         for i, p in enumerate(BIAS_PROMPTS):
             self.progress_cb(f"Bias {i+1}/{len(BIAS_PROMPTS)}: {p['prompt'][:60]}…")
-            oss_r, front_r = self._run_pair(p["prompt"])
+            oss_r, front_r = self._run_pair(p["prompt"], call_index=i)
             results.append({
                 "prompt": p["prompt"],
                 "category": p["category"],
@@ -124,47 +140,44 @@ class Evaluator:
 
         # --- summary stats ---
         def avg_latency(results, key):
-            vals = [r[key] for r in results]
+            # Exclude error/rate-limit results from latency averages
+            vals = [r[key] for r in results if r[key] > 0]
             return round(sum(vals) / len(vals), 3) if vals else 0
+
+        def pct(numerator, denominator):
+            return round(numerator / denominator * 100, 1) if denominator else 0
+
+        # Exclude error results from frontier scoring so 429s don't count as wrong
+        factual_ok    = [r for r in factual    if not r["frontier_response"].startswith("Error:")]
+        adv_ok        = [r for r in adversarial if not r["frontier_response"].startswith("Error:")]
+        bias_ok       = [r for r in bias        if not r["frontier_response"].startswith("Error:")]
 
         all_results = factual + adversarial + bias
         summary = {
             "timestamp": datetime.now().isoformat(),
             "oss_model": self.oss.model,
             "frontier_model": self.frontier.model_name,
+            "frontier_error_count": sum(1 for r in all_results if r.get("frontier_response", "").startswith("Error:")),
             "factual": {
-                "oss_accuracy_pct": round(
-                    sum(r["oss_correct"] for r in factual) / len(factual) * 100, 1
-                ),
-                "frontier_accuracy_pct": round(
-                    sum(r["frontier_correct"] for r in factual) / len(factual) * 100, 1
-                ),
+                "oss_accuracy_pct": pct(sum(r["oss_correct"] for r in factual), len(factual)),
+                "frontier_accuracy_pct": pct(sum(r["frontier_correct"] for r in factual_ok), len(factual_ok)),
+                "frontier_completed": len(factual_ok),
                 "oss_avg_latency": avg_latency(factual, "oss_latency"),
                 "frontier_avg_latency": avg_latency(factual, "frontier_latency"),
             },
             "adversarial": {
-                "oss_refusal_rate_pct": round(
-                    sum(r["oss_refused"] for r in adversarial) / len(adversarial) * 100, 1
-                ),
-                "frontier_refusal_rate_pct": round(
-                    sum(r["frontier_refused"] for r in adversarial) / len(adversarial) * 100, 1
-                ),
+                "oss_refusal_rate_pct": pct(sum(r["oss_refused"] for r in adversarial), len(adversarial)),
+                "frontier_refusal_rate_pct": pct(sum(r["frontier_refused"] for r in adv_ok), len(adv_ok)),
+                "frontier_completed": len(adv_ok),
                 "oss_avg_latency": avg_latency(adversarial, "oss_latency"),
                 "frontier_avg_latency": avg_latency(adversarial, "frontier_latency"),
             },
             "bias": {
-                "oss_challenged_pct": round(
-                    sum(r["oss_bias_verdict"] == "challenged" for r in bias) / len(bias) * 100, 1
-                ),
-                "frontier_challenged_pct": round(
-                    sum(r["frontier_bias_verdict"] == "challenged" for r in bias) / len(bias) * 100, 1
-                ),
-                "oss_affirmed_pct": round(
-                    sum(r["oss_bias_verdict"] == "affirmed" for r in bias) / len(bias) * 100, 1
-                ),
-                "frontier_affirmed_pct": round(
-                    sum(r["frontier_bias_verdict"] == "affirmed" for r in bias) / len(bias) * 100, 1
-                ),
+                "oss_challenged_pct": pct(sum(r["oss_bias_verdict"] == "challenged" for r in bias), len(bias)),
+                "frontier_challenged_pct": pct(sum(r["frontier_bias_verdict"] == "challenged" for r in bias_ok), len(bias_ok)),
+                "oss_affirmed_pct": pct(sum(r["oss_bias_verdict"] == "affirmed" for r in bias), len(bias)),
+                "frontier_affirmed_pct": pct(sum(r["frontier_bias_verdict"] == "affirmed" for r in bias_ok), len(bias_ok)),
+                "frontier_completed": len(bias_ok),
                 "oss_avg_latency": avg_latency(bias, "oss_latency"),
                 "frontier_avg_latency": avg_latency(bias, "frontier_latency"),
             },

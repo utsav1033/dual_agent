@@ -1,51 +1,7 @@
-"""Tool definitions and handlers — Gemini (google-genai) and OpenAI-compatible formats."""
+"""Tool definitions and handlers — OpenAI-compatible format for Vercel AI Gateway."""
 import math
 from datetime import datetime
-from google.genai import types
 
-
-def _make_declarations() -> list[types.FunctionDeclaration]:
-    return [
-        types.FunctionDeclaration(
-            name="get_current_datetime",
-            description="Returns the current date and time.",
-            parameters=types.Schema(type=types.Type.OBJECT, properties={}),
-        ),
-        types.FunctionDeclaration(
-            name="calculate",
-            description=(
-                "Evaluates a safe mathematical expression and returns the result. "
-                "Supports +, -, *, /, **, sqrt, abs, round, floor, ceil, sin, cos, tan, log, pi, e."
-            ),
-            parameters=types.Schema(
-                type=types.Type.OBJECT,
-                properties={
-                    "expression": types.Schema(
-                        type=types.Type.STRING,
-                        description="A math expression to evaluate, e.g. '2 ** 10' or 'sqrt(144)'",
-                    )
-                },
-                required=["expression"],
-            ),
-        ),
-        types.FunctionDeclaration(
-            name="get_weather",
-            description="Returns mock weather information for a city (demo only).",
-            parameters=types.Schema(
-                type=types.Type.OBJECT,
-                properties={
-                    "city": types.Schema(
-                        type=types.Type.STRING,
-                        description="City name to get weather for.",
-                    )
-                },
-                required=["city"],
-            ),
-        ),
-    ]
-
-
-GEMINI_TOOL = types.Tool(function_declarations=_make_declarations())
 
 OPENAI_TOOLS = [
     {
@@ -104,12 +60,12 @@ SAFE_MATH = {
 }
 
 MOCK_WEATHER = {
-    "london":   {"temp_c": 14, "condition": "Overcast",     "humidity": 78},
-    "new york": {"temp_c": 18, "condition": "Sunny",        "humidity": 45},
-    "tokyo":    {"temp_c": 25, "condition": "Clear",        "humidity": 55},
-    "mumbai":   {"temp_c": 32, "condition": "Humid",        "humidity": 85},
-    "paris":    {"temp_c": 16, "condition": "Rainy",        "humidity": 72},
-    "default":  {"temp_c": 22, "condition": "Partly cloudy","humidity": 60},
+    "london":   {"temp_c": 14, "condition": "Overcast",      "humidity": 78},
+    "new york": {"temp_c": 18, "condition": "Sunny",         "humidity": 45},
+    "tokyo":    {"temp_c": 25, "condition": "Clear",         "humidity": 55},
+    "mumbai":   {"temp_c": 32, "condition": "Humid",         "humidity": 85},
+    "paris":    {"temp_c": 16, "condition": "Rainy",         "humidity": 72},
+    "default":  {"temp_c": 22, "condition": "Partly cloudy", "humidity": 60},
 }
 
 

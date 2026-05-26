@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 HF_TOKEN = os.getenv("HF_TOKEN", "")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_API_KEY = os.getenv("GROQ_KEY", "")
 
 st.set_page_config(page_title="Dual AI Assistant", layout="wide")
 

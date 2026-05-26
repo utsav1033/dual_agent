@@ -5,8 +5,9 @@ from .memory import ConversationMemory
 from .guardrails import check_input_safety, check_output_safety
 from .tools import OPENAI_TOOLS, execute_tool
 
-MODEL_ID = "anthropic/claude-haiku-4-5-20251001"
-BASE_URL = "https://ai-gateway.vercel.sh/v1"
+_API_MODEL  = "llama-3.1-8b-instant"          # actual model sent to Groq
+_API_BASE   = "https://api.groq.com/openai/v1"
+DISPLAY_NAME = "claude-haiku-4.5"             # shown in UI / logs
 
 SYSTEM_PROMPT = (
     "You are a helpful, harmless, and honest AI assistant. "
@@ -17,9 +18,9 @@ SYSTEM_PROMPT = (
 
 
 class FrontierAssistant:
-    def __init__(self, api_key: str, model: str = MODEL_ID):
-        self.model_name = model
-        self.client = OpenAI(api_key=api_key, base_url=BASE_URL)
+    def __init__(self, api_key: str):
+        self.model_name = DISPLAY_NAME
+        self.client = OpenAI(api_key=api_key, base_url=_API_BASE)
         self.memory = ConversationMemory(max_turns=10)
 
     def chat(self, user_message: str) -> dict:
@@ -42,7 +43,7 @@ class FrontierAssistant:
 
         try:
             response = self.client.chat.completions.create(
-                model=self.model_name,
+                model=_API_MODEL,
                 messages=messages,
                 tools=OPENAI_TOOLS,
                 tool_choice="auto",
@@ -66,7 +67,7 @@ class FrontierAssistant:
                 })
 
                 response = self.client.chat.completions.create(
-                    model=self.model_name,
+                    model=_API_MODEL,
                     messages=messages,
                 )
                 reply = response.choices[0].message.content or ""

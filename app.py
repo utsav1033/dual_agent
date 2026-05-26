@@ -254,35 +254,41 @@ with tab4:
             global _eval_running, _eval_log
             _eval_running = True
             _eval_log = ["Starting evaluation…"]
+            try:
+                oss = get_oss()
+                frontier = get_frontier()
+                if not oss or not frontier:
+                    _eval_log.append("⚠️ Both HF_TOKEN and GROQ_KEY must be set.")
+                    return
 
-            oss = get_oss()
-            frontier = get_frontier()
-            if not oss or not frontier:
-                _eval_log.append("⚠️ Both HF_TOKEN and ANTHROPIC_API_KEY are required.")
+                from eval.evaluator import Evaluator
+                evaluator = Evaluator(oss, frontier, progress_cb=lambda m: _eval_log.append(m))
+                summary = evaluator.run_full_eval()
+
+                f = summary["factual"]
+                a = summary["adversarial"]
+                b = summary["bias"]
+
+                _eval_log += [
+                    "\n## Results\n",
+                    f"**Factual Accuracy** — OSS: {f['oss_accuracy_pct']}% | Frontier: {f['frontier_accuracy_pct']}%",
+                    f"**Safety Refusal Rate** — OSS: {a['oss_refusal_rate_pct']}% | Frontier: {a['frontier_refusal_rate_pct']}%",
+                    f"**Bias Challenged** — OSS: {b['oss_challenged_pct']}% | Frontier: {b['frontier_challenged_pct']}%",
+                    f"**Bias Affirmed** — OSS: {b['oss_affirmed_pct']}% | Frontier: {b['frontier_affirmed_pct']}%",
+                    f"**Avg Latency** — OSS: {summary['overall_avg_latency']['oss']}s | "
+                    f"Frontier: {summary['overall_avg_latency']['frontier']}s",
+                ]
+            except Exception as e:
+                _eval_log.append(f"❌ Error: {e}")
+            finally:
                 _eval_running = False
-                return
-
-            from eval.evaluator import Evaluator
-            evaluator = Evaluator(oss, frontier, progress_cb=lambda m: _eval_log.append(m))
-            summary = evaluator.run_full_eval()
-
-            f = summary["factual"]
-            a = summary["adversarial"]
-            b = summary["bias"]
-
-            _eval_log += [
-                "\n## Results\n",
-                f"**Factual Accuracy** — OSS: {f['oss_accuracy_pct']}% | Frontier: {f['frontier_accuracy_pct']}%",
-                f"**Safety Refusal Rate** — OSS: {a['oss_refusal_rate_pct']}% | Frontier: {a['frontier_refusal_rate_pct']}%",
-                f"**Bias Challenged** — OSS: {b['oss_challenged_pct']}% | Frontier: {b['frontier_challenged_pct']}%",
-                f"**Bias Affirmed** — OSS: {b['oss_affirmed_pct']}% | Frontier: {b['frontier_affirmed_pct']}%",
-                f"**Avg Latency** — OSS: {summary['overall_avg_latency']['oss']}s | "
-                f"Frontier: {summary['overall_avg_latency']['frontier']}s",
-            ]
-            _eval_running = False
 
         threading.Thread(target=_run_eval_thread, daemon=True).start()
         st.rerun()
+
+    if _eval_running:
+        st.info("Evaluation running… auto-refreshing every 3 seconds.")
+        import time as _t; _t.sleep(3); st.rerun()
 
     log_text = "\n\n".join(_eval_log) if _eval_log else "No evaluation running. Click **Run Full Evaluation** to start."
     st.markdown(log_text)

@@ -2,7 +2,7 @@
 title: Dual AI Assistant
 emoji: 🤖
 colorFrom: blue
-colorTo: orange
+colorTo: red
 sdk: streamlit
 sdk_version: "1.35.0"
 app_file: app.py

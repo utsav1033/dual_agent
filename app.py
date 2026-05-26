@@ -1,7 +1,7 @@
 """
 Dual AI Assistant — Streamlit app
-  Tab 1: OSS Assistant  (Mistral-7B-Instruct via HuggingFace Inference API)
-  Tab 2: Frontier       (Gemini 2.0 Flash with tool use)
+  Tab 1: OSS Assistant  (Qwen2.5-7B-Instruct via HuggingFace Inference API)
+  Tab 2: Frontier       (Claude Haiku 4.5 via Vercel AI Gateway, with tool use)
   Tab 3: Side-by-side comparison
   Tab 4: Automated evaluation runner
   Tab 5: Observability / stats
@@ -258,7 +258,7 @@ with tab4:
             oss = get_oss()
             frontier = get_frontier()
             if not oss or not frontier:
-                _eval_log.append("⚠️ Both HF_TOKEN and GEMINI_API_KEY are required.")
+                _eval_log.append("⚠️ Both HF_TOKEN and ANTHROPIC_API_KEY are required.")
                 _eval_running = False
                 return
 

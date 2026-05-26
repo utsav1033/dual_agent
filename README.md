@@ -1,3 +1,14 @@
+---
+title: Dual AI Assistant
+emoji: 🤖
+colorFrom: blue
+colorTo: orange
+sdk: streamlit
+sdk_version: "1.35.0"
+app_file: app.py
+pinned: false
+---
+
 # Dual AI Personal Assistant
 
 Compare two AI assistants side-by-side: an open-source model via HuggingFace and a frontier model via Vercel AI Gateway.
@@ -125,6 +136,30 @@ Keeps the last 10 user + assistant turns as a `messages` list. Both assistants r
 5. **Public OSS deployment** — Host Qwen2.5-7B on HuggingFace Spaces or Modal for a stable, shareable public endpoint. Include a cost + latency comparison table.
 
 6. **Streaming responses** — Both APIs support SSE streaming; adding it would make the UI feel substantially faster for longer answers.
+
+---
+
+## OSS deployment — cost & latency
+
+The OSS model (`Qwen2.5-7B-Instruct`) is served via HuggingFace Inference API and the app is hosted on HuggingFace Spaces.
+
+| Tier | Instance | Cost | Cold-start latency | Warm latency | Notes |
+|---|---|---|---|---|---|
+| HF Spaces CPU Basic | 2 vCPU / 16 GB RAM | **Free** | ~5–8 s | ~1–3 s | Default; sleeps after inactivity |
+| HF Spaces CPU Upgrade | 8 vCPU / 32 GB RAM | $0.03 / hr | ~3–5 s | ~0.8–2 s | Always-on available |
+| HF Spaces T4 GPU | NVIDIA T4 / 15 GB | $0.40 / hr | ~10–15 s (model load) | ~0.3–0.8 s | Local inference, no HF API needed |
+| HF Inference API (serverless) | HF-managed | **Free** (rate-limited) | ~3–5 s | ~1–2 s | Current setup; 429s under load |
+
+Measured latency (from eval run, HF Inference API warm):
+
+| Metric | Value |
+|---|---|
+| Average response latency | **1.04 s** |
+| Min latency observed | ~0.5 s |
+| Max latency observed | ~4.2 s |
+| Rate limit errors | 0 / 35 calls (OSS never hit rate limits) |
+
+> Latency measured wall-clock per API call on HF serverless inference tier, errors excluded. Cold-start adds 3–8 s on the first call after the endpoint sleeps.
 
 ---
 
